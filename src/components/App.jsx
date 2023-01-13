@@ -1,4 +1,4 @@
-import { Component } from 'react';
+import { useState, useEffect } from 'react';
 import toast, { Toaster } from 'react-hot-toast';
 import { Container } from './Container';
 import { GlobalStyle } from './GlobalStyle';
@@ -8,68 +8,59 @@ import { ImageGallery } from './ImageGallery/ImageGallery';
 import { Button } from './Button/Button';
 import { Loader } from './Loader/Loader';
 
-export class App extends Component {
-  state = {
-    query: null,
-    page: 1,
-    pictures: [],
-    isLoading: false,
-  };
+export const App = () => {
+  const [query, setQuery] = useState(null);
+  const [page, setPage] = useState(1);
+  const [pictures, setPictures] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
 
-  async componentDidUpdate(_, prevState) {
-    const { query, page } = this.state;
-    if (query !== prevState.query || page !== prevState.page) {
-      const fetch = await this.getPictures(query, page);
-      return fetch;
-    }
-  }
-
-  getPictures = async (query, page) => {
-    try {
-      this.setState({ isLoading: true, error: null });
-      const fetchedPictures = await fetchPictures(query, page);
-      if (fetchedPictures.length === 0) {
-        return toast.error(
-          'Sorry, we could not find any pictures that match your request. Try again!'
-        );
+  useEffect(() => {
+    if (!query) return;
+    async function getPictures() {
+      try {
+        setIsLoading(true);
+        const fetchedPictures = await fetchPictures(query, page);
+        if (fetchedPictures.length === 0) {
+          return toast.error(
+            'Sorry, we could not find any pictures that match your request. Try again!'
+          );
+        }
+        setPictures(prev => [...prev, ...fetchedPictures]);
+      } catch (error) {
+        toast.error('Sorry, something went wrong. Try reloading the page');
+      } finally {
+        setIsLoading(false);
       }
-      this.setState(({ pictures }) => ({
-        pictures: [...pictures, ...fetchedPictures],
-      }));
-    } catch (error) {
-      toast.error('Sorry, something went wrong. Try reloading the page');
-    } finally {
-      this.setState({ isLoading: false });
     }
+    getPictures();
+  }, [query, page]);
+
+  const handleSubmit = query => {
+    setQuery(query);
+    setPage(1);
+    setPictures([]);
   };
 
-  handleSubmit = async query => {
-    this.setState({ query, page: 1, pictures: [] });
+  const LoadMore = () => {
+    setPage(prev => prev + 1);
   };
 
-  LoadMore = () => {
-    this.setState(({ page }) => ({ page: page + 1 }));
-  };
+  return (
+    <>
+      <GlobalStyle />
 
-  render() {
-    const { pictures, isLoading } = this.state;
-    return (
-      <>
-        <GlobalStyle />
+      <Container>
+        <Searchbar onSubmit={handleSubmit} />
+        {isLoading && <Loader />}
+        {pictures.length > 0 && (
+          <>
+            <ImageGallery pictures={pictures} />
 
-        <Container>
-          <Searchbar onSubmit={this.handleSubmit} />
-          {isLoading && <Loader />}
-          {pictures.length > 0 && (
-            <>
-              <ImageGallery pictures={pictures} />
-
-              <Button LoadMore={this.LoadMore} />
-            </>
-          )}
-          <Toaster position="top-right" />
-        </Container>
-      </>
-    );
-  }
-}
+            <Button LoadMore={LoadMore} />
+          </>
+        )}
+        <Toaster position="top-right" />
+      </Container>
+    </>
+  );
+};
